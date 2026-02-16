@@ -214,7 +214,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
       <div id="result" class="result hidden">
         <h3>Classification Result:</h3>
         <p style="font-size: 1.2rem;">Your fruit is predicted to be: <span id="prediction" style="color: #27ae60; font-size: 1.4rem;"></span></p>
-        <h3>Nearest Neighbors (K=3):</h3>
+        <h3 id="neighborsHeading">Nearest Neighbors (K=3):</h3>
         <div id="neighborsList" class="neighbors-list"></div>
       </div>
     </div>
@@ -346,7 +346,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
             },
             plugins: {
               legend: {position: 'top'},
-              tooltip: {mode: 'point', intersect: false},
+              tooltip: {mode: 'point', intersect: false, filter: function(tooltipItem) { return tooltipItem.dataset.label !== 'Neighbor Lines'; }},
               datalabels: {
                 display: function(context) {
                   return context.dataset.label === 'Your Fruit';
@@ -454,7 +454,8 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         document.getElementById('prediction').textContent = prediction;
         document.getElementById('result').classList.remove('hidden');
 
-        // Update neighbors list
+        // Update neighbors list and heading with current K value
+        document.getElementById('neighborsHeading').textContent = `Nearest Neighbors (K=${k}):`;
         updateNeighborsList(nearest);
 
         // Highlight nearest neighbors (add dark red border)
