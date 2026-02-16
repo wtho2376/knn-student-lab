@@ -2,11 +2,21 @@
 
 A minimal, hands-on introduction to the **K-Nearest Neighbors (KNN)** algorithm for high school to first-year college students.
 
-## 🚀 Live Demo
-Open the interactive webpage directly in your browser:
-> **https://wtho2376.github.io/knn-student-lab**
+## 🚀 Open the Interactive Webpage
+Since the repo is private, you can’t use GitHub Pages — but you can open it locally in 1 click:
 
-*(Note: GitHub Pages may take 1-2 minutes to activate after enabling it in repo settings.)*
+### Option 1: Local Browser (Simplest)
+1. Go to the repo → **Code** → **Download ZIP**
+2. Unzip the file
+3. **Double-click** the `index.html` file — it will open in your default browser!
+
+### Option 2: Local Web Server (For Future Features)
+If you want to add dynamic content later, run a local server:
+```bash
+cd knn-student-lab
+python -m http.server 8000
+# Open http://localhost:8000 in your browser
+```
 
 ## What's here?
 - `index.html`: Interactive webpage with tabbed Python & R examples
