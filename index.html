@@ -6,7 +6,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 2rem; background: #f8f9fa; }
-    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .container { max-width: 1400px; margin: 0 auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
     h1 { color: #2c3e50; margin-bottom: 1.5rem; text-align: center; }
     h2 { color: #34495e; margin: 2rem 0 1rem; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
     h3 { color: #34495e; margin: 1.5rem 0 0.5rem; }
@@ -19,8 +19,15 @@
     .layman { background: #e3f2fd; padding: 1.5rem; border-radius: 5px; border-left: 5px solid #2196f3; }
     .algorithm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1.5rem 0; }
     .algorithm-card { background: #f5f7fa; padding: 1.5rem; border-radius: 5px; border-left: 5px solid #3498db; }
-    .visualization { margin: 2rem 0; text-align: center; position: relative; }
+    .visualization-container { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin: 2rem 0; }
+    .visualization { text-align: center; position: relative; }
     #knnChart { max-width: 800px; margin: 0 auto; height: 400px; cursor: crosshair; }
+    .table-container { background: #f8f9fa; padding: 1.5rem; border-radius: 5px; overflow-y: auto; max-height: 500px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; /* 30% smaller than default ~1rem */ }
+    .data-table th, .data-table td { padding: 0.6rem; border-bottom: 1px solid #eee; text-align: left; }
+    .data-table th { background: #e9ecef; font-weight: 600; cursor: pointer; user-select: none; font-size: 0.75rem; /* Slightly larger font for headers */ }
+    .data-table th:hover { background: #dee2e6; }
+    .sort-icon { margin-left: 0.5rem; font-size: 0.6rem; }
     .controls { margin: 2rem 0; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; align-items: center; }
     .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
     label { font-weight: 500; color: #34495e; }
@@ -37,8 +44,10 @@
     .note { margin: 1rem 0; padding: 1rem; background: #fff3cd; border-radius: 5px; border-left: 5px solid #ffc107; font-style: italic; }
     code { background: #f1f3f4; padding: 0.2rem 0.4rem; border-radius: 3px; font-family: 'Courier New', Courier, monospace; }
     pre { background: #f1f3f4; padding: 1rem; border-radius: 5px; overflow-x: auto; margin: 1rem 0; }
+    .hidden { display: none; }
   </style>
   <script src="chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -155,7 +164,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
     </div>
 
     <!-- Interactive Visualization Tab -->
-    <div id="visualize" class="content hidden">
+    <div id="visualize" class="content">
       <h2>Interactive KNN Visualization</h2>
       <p style="color: #666; margin: 1rem 0;">Click anywhere on the chart to add a new fruit, and see how KNN classifies it! Data is randomly generated based on real orange/grapefruit dimensions.</p>
       
@@ -163,8 +172,30 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         <strong>💡 Educational Note:</strong> Standardization (scaling data to have mean=0 and std=1) is crucial for KNN because it ensures both features (diameter and weight) have equal influence on distance calculations. Without standardization, weight (which has larger numbers) would dominate the distance metric.
       </div>
       
-      <div class="visualization">
-        <canvas id="knnChart"></canvas>
+      <div class="visualization-container">
+        <div class="visualization">
+          <canvas id="knnChart"></canvas>
+        </div>
+        
+        <div class="table-container">
+          <h3>Data & Distances</h3>
+          <p style="color: #666; margin: 0.5rem 0; font-size: 0.9rem;">Click on the chart to see distances from your point:</p>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th onclick="sortTable('type')">Type <span class="sort-icon">↑↓</span></th>
+                <th onclick="sortTable('diameter')">Diameter (cm) <span class="sort-icon">↑↓</span></th>
+                <th onclick="sortTable('weight')">Weight (g) <span class="sort-icon">↑↓</span></th>
+                <th id="std-diam-header" onclick="sortTable('diameter_std')">Diameter (Std) <span class="sort-icon">↑↓</span></th>
+                <th id="std-weight-header" onclick="sortTable('weight_std')">Weight (Std) <span class="sort-icon">↑↓</span></th>
+                <th onclick="sortTable('distance')">Distance <span class="sort-icon">↑↓</span></th>
+              </tr>
+            </thead>
+            <tbody id="data-table-body">
+              <tr><td colspan="6" style="text-align: center;">Click on the chart to add a point</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div class="controls">
@@ -174,7 +205,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         </div>
         <div class="control-group toggle-switch">
           <label for="standardize">Standardize Data:</label>
-          <input type="checkbox" id="standardize" checked>
+          <input type="checkbox" id="standardize" checked onchange="updateTable()">
         </div>
         <button onclick="resetChart()">Reset Chart</button>
         <button onclick="regenerateData()">Regenerate Data</button>
@@ -189,11 +220,18 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
     </div>
 
     <script>
+      // Register Chart.js plugin
+      Chart.register(ChartDataLabels);
+      
       // Tab switching
       let chart = null;
       let orangeData = [];
       let grapefruitData = [];
       let scaler = {}; // To store mean and std for standardization
+      let userPoint = null;
+      let sortedData = [];
+      let sortColumn = 'distance';
+      let sortOrder = 'asc';
       
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -209,6 +247,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
             calculateScaler();
             initChart();
             addCanvasClickListener();
+            updateTableVisibility();
           }
         });
       });
@@ -307,7 +346,24 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
             },
             plugins: {
               legend: {position: 'top'},
-              tooltip: {mode: 'point', intersect: false}
+              tooltip: {mode: 'point', intersect: false},
+              datalabels: {
+                display: function(context) {
+                  return context.dataset.label === 'Your Fruit';
+                },
+                color: '#ffffff',
+                backgroundColor: '#1e8449',
+                borderRadius: 5,
+                padding: 4,
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                formatter: function(value, context) {
+                  const prediction = document.getElementById('prediction').textContent;
+                  return prediction || '?';
+                }
+              }
             }
           }
         });
@@ -343,6 +399,8 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         const k = parseInt(document.getElementById('k').value);
         const standardize = document.getElementById('standardize').checked;
         
+        userPoint = {x: diameter, y: weight};
+        
         // Remove existing custom point and lines
         chart.data.datasets = chart.data.datasets.filter(d => d.label !== 'Your Fruit' && d.label !== 'Neighbor Lines');
         
@@ -354,7 +412,8 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
           pointRadius: 12,
           pointHoverRadius: 14,
           borderWidth: 2,
-          borderColor: '#1e8449'
+          borderColor: '#1e8449',
+          datalabels: { enabled: true } // Enable labels for this dataset
         });
 
         // Prepare all points
@@ -362,13 +421,16 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         orangeData.forEach(p => allPoints.push({...p, type: 'orange'}));
         grapefruitData.forEach(p => allPoints.push({...p, type: 'grapefruit'}));
 
-        // Calculate distances
-        const userPoint = {x: diameter, y: weight};
+        // Calculate distances and standardized values
         allPoints.forEach(p => {
           let p1 = userPoint;
           let p2 = p;
           
-          // Standardize if enabled
+          // Standardize values
+          p.diameter_std = (p.x - scaler.xMean) / scaler.xStd;
+          p.weight_std = (p.y - scaler.yMean) / scaler.yStd;
+          
+          // Calculate distance with/without standardization
           if (standardize) {
             p1 = standardizePoint(p1);
             p2 = standardizePoint(p2);
@@ -400,6 +462,10 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
 
         // Draw lines to nearest neighbors
         drawNeighborLines(userPoint, nearest);
+
+        // Update data table
+        sortedData = [...allPoints];
+        sortTable(sortColumn);
 
         // Update chart
         chart.update();
@@ -466,6 +532,107 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
         });
       }
 
+      // Update data table
+      function updateTable() {
+        if (!userPoint) return;
+        
+        const standardize = document.getElementById('standardize').checked;
+        updateTableVisibility();
+        
+        // Recalculate distances if standardization changed
+        const allPoints = [];
+        orangeData.forEach(p => allPoints.push({...p, type: 'orange'}));
+        grapefruitData.forEach(p => allPoints.push({...p, type: 'grapefruit'}));
+        
+        allPoints.forEach(p => {
+          let p1 = userPoint;
+          let p2 = p;
+          
+          // Standardize values (always calculate for table)
+          p.diameter_std = (p.x - scaler.xMean) / scaler.xStd;
+          p.weight_std = (p.y - scaler.yMean) / scaler.yStd;
+          
+          // Calculate distance with/without standardization
+          if (standardize) {
+            p1 = standardizePoint(p1);
+            p2 = standardizePoint(p2);
+          }
+          
+          p.distance = getDistance(p1, p2);
+        });
+        
+        sortedData = [...allPoints];
+        sortTable(sortColumn);
+      }
+
+      // Update table visibility (show/hide standardize columns)
+      function updateTableVisibility() {
+        const standardize = document.getElementById('standardize').checked;
+        document.getElementById('std-diam-header').style.display = standardize ? 'table-cell' : 'none';
+        document.getElementById('std-weight-header').style.display = standardize ? 'table-cell' : 'none';
+        
+        const tdStdDiam = document.querySelectorAll('#data-table-body td:nth-child(4)');
+        const tdStdWeight = document.querySelectorAll('#data-table-body td:nth-child(5)');
+        
+        tdStdDiam.forEach(td => {
+          td.style.display = standardize ? 'table-cell' : 'none';
+        });
+        
+        tdStdWeight.forEach(td => {
+          td.style.display = standardize ? 'table-cell' : 'none';
+        });
+      }
+
+      // Sort table by column
+      function sortTable(column) {
+        if (!sortedData.length && !userPoint) return;
+        
+        // Toggle sort order if same column is clicked again
+        if (sortColumn === column) {
+          sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortOrder = 'asc';
+          sortColumn = column;
+        }
+        
+        // Sort data
+        sortedData.sort((a, b) => {
+          if (column === 'type') {
+            return sortOrder === 'asc' ? a.type.localeCompare(b.type) : b.type.localeCompare(a.type);
+          } else if (column === 'diameter') {
+            return sortOrder === 'asc' ? a.x - b.x : b.x - a.x;
+          } else if (column === 'weight') {
+            return sortOrder === 'asc' ? a.y - b.y : b.y - a.y;
+          } else if (column === 'diameter_std') {
+            return sortOrder === 'asc' ? a.diameter_std - b.diameter_std : b.diameter_std - a.diameter_std;
+          } else if (column === 'weight_std') {
+            return sortOrder === 'asc' ? a.weight_std - b.weight_std : b.weight_std - a.weight_std;
+          } else if (column === 'distance') {
+            return sortOrder === 'asc' ? a.distance - b.distance : b.distance - a.distance;
+          }
+        });
+        
+        // Update table body
+        const tbody = document.getElementById('data-table-body');
+        tbody.innerHTML = '';
+        
+        sortedData.forEach(point => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${point.type.toUpperCase()}</td>
+            <td>${point.x.toFixed(1)}</td>
+            <td>${point.y.toFixed(0)}</td>
+            <td>${point.diameter_std.toFixed(2)}</td>
+            <td>${point.weight_std.toFixed(2)}</td>
+            <td>${point.distance.toFixed(2)}</td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+        // Update standardize column visibility
+        updateTableVisibility();
+      }
+
       // Reset chart
       function resetChart() {
         if (!chart) return;
@@ -479,8 +646,13 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
           }
         });
 
-        // Reset result
+        // Reset result and table
         document.getElementById('result').classList.add('hidden');
+        userPoint = null;
+        sortedData = [];
+        const tbody = document.getElementById('data-table-body');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Click on the chart to add a point</td></tr>';
+        
         chart.update();
       }
 
@@ -526,6 +698,7 @@ cat("Test accuracy:", round(accuracy, 3), "\n")
           calculateScaler();
           initChart();
           addCanvasClickListener();
+          updateTableVisibility();
         }
       });
     </script>
