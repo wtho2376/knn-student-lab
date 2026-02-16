@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>KNN for Beginners</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .tab { padding: 0.5rem 1rem; cursor: pointer; background: #eee; }
+    .tab.active { background: #007bff; color: white; }
+    .content { border: 1px solid #ccc; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>🔍 K-Nearest Neighbors (KNN) Lab</h1>
+  <p>Simple examples in Python and R — for learners (HS to Year 1).</p>
+
+  <div class="tabs">
+    <div class="tab active" data-target="python">Python</div>
+    <div class="tab" data-target="r">R</div>
+  </div>
+
+  <div id="python" class="content">
+    <h3>Python Example</h3>
+    <pre><code># Install: pip install scikit-learn numpy
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+
+# Load sample data
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Train KNN (k=3)
+knn = KNeighborsClassifier(n_neighbors=3)
+knn.fit(X_train, y_train)
+
+# Predict
+print("Score:", knn.score(X_test, y_test))
+</code></pre>
+  </div>
+
+  <div id="r" class="content" style="display:none;">
+    <h3>R Example</h3>
+    <pre><code># Install: install.packages("class")
+library(class)
+data(iris)
+
+# Split data
+set.seed(123)
+train_idx <- sample(1:nrow(iris), 0.8 * nrow(iris))
+train <- iris[train_idx, ]
+test <- iris[-train_idx, ]
+
+# Train KNN (k=3)
+pred <- knn(train[, 1:4], test[, 1:4], train$Species, k = 3)
+
+# Accuracy
+mean(pred == test$Species)
+</code></pre>
+  </div>
+
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelector('.tab.active').classList.remove('active');
+        tab.classList.add('active');
+        const target = tab.dataset.target;
+        document.querySelectorAll('.content').forEach(el => el.style.display = 'none');
+        document.getElementById(target).style.display = 'block';
+      });
+    });
+  </script>
+</body>
+</html>
