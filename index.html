@@ -2,48 +2,136 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>KNN for Beginners</title>
+  <title>KNN for Beginners - Interactive Guide</title>
   <style>
-    body { font-family: sans-serif; margin: 2rem; }
-    .tabs { display: flex; gap: 1rem; margin-bottom: 1rem; }
-    .tab { padding: 0.5rem 1rem; cursor: pointer; background: #eee; }
-    .tab.active { background: #007bff; color: white; }
-    .content { border: 1px solid #ccc; padding: 1rem; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 2rem; background: #f8f9fa; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; margin-bottom: 1.5rem; text-align: center; }
+    h2 { color: #34495e; margin: 2rem 0 1rem; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+    h3 { color: #34495e; margin: 1.5rem 0 0.5rem; }
+    .section { margin: 2rem 0; }
+    .tabs { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #eee; }
+    .tab { padding: 0.8rem 1.5rem; cursor: pointer; background: #eee; border-radius: 5px 5px 0 0; font-weight: 500; transition: background 0.3s; }
+    .tab.active { background: #3498db; color: white; }
+    .content { padding: 1.5rem; border: 1px solid #eee; border-radius: 0 5px 5px 5px; }
+    .hidden { display: none; }
+    .layman { background: #e3f2fd; padding: 1.5rem; border-radius: 5px; border-left: 5px solid #2196f3; }
+    .algorithm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 1.5rem 0; }
+    .algorithm-card { background: #f5f7fa; padding: 1.5rem; border-radius: 5px; border-left: 5px solid #3498db; }
+    .visualization { margin: 2rem 0; text-align: center; position: relative; }
+    #knnChart { max-width: 800px; margin: 0 auto; height: 400px; cursor: crosshair; }
+    .controls { margin: 2rem 0; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    label { font-weight: 500; color: #34495e; }
+    input[type="number"] { padding: 0.5rem; border: 1px solid #ddd; border-radius: 3px; width: 120px; }
+    .toggle-switch { display: flex; align-items: center; gap: 0.5rem; }
+    .toggle-switch input { width: auto; }
+    button { padding: 0.7rem 1.5rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 500; transition: background 0.3s; }
+    button:hover { background: #2980b9; }
+    .result { margin: 2rem 0; padding: 1.5rem; background: #e8f5e9; border-radius: 5px; border-left: 5px solid #4caf50; font-weight: 500; }
+    .result.hidden { display: none; }
+    .neighbors-list { margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+    .neighbor-item { padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .neighbor-item:last-child { border-bottom: none; }
+    .note { margin: 1rem 0; padding: 1rem; background: #fff3cd; border-radius: 5px; border-left: 5px solid #ffc107; font-style: italic; }
+    code { background: #f1f3f4; padding: 0.2rem 0.4rem; border-radius: 3px; font-family: 'Courier New', Courier, monospace; }
+    pre { background: #f1f3f4; padding: 1rem; border-radius: 5px; overflow-x: auto; margin: 1rem 0; }
   </style>
+  <script src="chart.umd.min.js"></script>
 </head>
 <body>
-  <h1>🔍 K-Nearest Neighbors (KNN) Lab</h1>
-  <p>Simple examples in Python and R — for learners (HS to Year 1).</p>
+  <div class="container">
+    <h1>🔍 K-Nearest Neighbors (KNN) - Interactive Guide</h1>
+    <p style="color: #666; margin-bottom: 2rem; font-size: 1.1rem; text-align: center;">Learn KNN through simple explanations and interactive visualization</p>
 
-  <div class="tabs">
-    <div class="tab active" data-target="python">Python</div>
-    <div class="tab" data-target="r">R</div>
-  </div>
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-target="intro">Introduction</div>
+      <div class="tab" data-target="python">Python Example</div>
+      <div class="tab" data-target="r">R Example</div>
+      <div class="tab" data-target="visualize">Interactive Visualization</div>
+    </div>
 
-  <div id="python" class="content">
-    <h3>Python Example</h3>
-    <pre><code># Install: pip install scikit-learn numpy
+    <!-- Introduction Tab -->
+    <div id="intro" class="content">
+      <h2>What is KNN?</h2>
+      
+      <div class="layman">
+        <h3>Layman's Explanation</h3>
+        <p>Imagine you're trying to figure out if a fruit is an <strong>orange</strong> or <strong>grapefruit</strong>. You don't know, but you have a basket of fruits where you know exactly what each one is.</p>
+        <p>KNN is like asking: <em>"What are the 3 most similar fruits to this one, and what are they?"</em> If most are oranges, you guess it's an orange. If most are grapefruits, you guess it's a grapefruit.</p>
+        <p>That's KNN in a nutshell: <strong>Find the K most similar items to your unknown item, and let them vote on the answer.</strong></p>
+      </div>
+
+      <h2>KNN Algorithm Breakdown</h2>
+      <div class="algorithm-grid">
+        <div class="algorithm-card">
+          <h3>KNN Classification</h3>
+          <p>Used when you want to predict a <strong>category</strong> (e.g., orange vs grapefruit).</p>
+          <ol>
+            <li>Calculate the <strong>distance</strong> between your unknown item and every known item</li>
+            <li>Find the <strong>K nearest neighbors</strong> (smallest distances)</li>
+            <li>Count the number of neighbors in each category</li>
+            <li>Assign the unknown item to the category with the <strong>most votes</strong></li>
+          </ol>
+          <p><strong>Example:</strong> K=3, neighbors are 2 oranges and 1 grapefruit → predict <strong>orange</strong>.</p>
+        </div>
+        <div class="algorithm-card">
+          <h3>KNN Regression</h3>
+          <p>Used when you want to predict a <strong>numeric value</strong> (e.g., price of a house, weight of a fruit).</p>
+          <ol>
+            <li>Calculate the <strong>distance</strong> between your unknown item and every known item</li>
+            <li>Find the <strong>K nearest neighbors</strong> (smallest distances)</li>
+            <li>Calculate the <strong>average (mean) value</strong> of those K neighbors</li>
+            <li>Assign this average as the predicted value for the unknown item</li>
+          </ol>
+          <p><strong>Example:</strong> K=3, neighbors weigh 100g, 110g, 105g → predict <strong>105g</strong>.</p>
+        </div>
+      </div>
+
+      <h2>Key Concepts</h2>
+      <ul>
+        <li><strong>Distance Metric:</strong> Usually Euclidean distance (straight line between points), but can use others like Manhattan distance.</li>
+        <li><strong>Choosing K:</strong> Small K (e.g., 3) makes the model sensitive to noise; large K (e.g., 15) makes it more stable but less responsive to local patterns.</li>
+        <li><strong>Scaling:</strong> KNN is sensitive to feature scales (e.g., weight in kg vs grams) — always normalize your data first!</li>
+      </ul>
+    </div>
+
+    <!-- Python Example Tab -->
+    <div id="python" class="content hidden">
+      <h2>Python KNN Example</h2>
+      <pre><code># Install: pip install scikit-learn numpy
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 # Load sample data
 X, y = load_iris(return_X_y=True)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Scale data (important for KNN!)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
 # Train KNN (k=3)
 knn = KNeighborsClassifier(n_neighbors=3)
-knn.fit(X_train, y_train)
+knn.fit(X_train_scaled, y_train)
 
-# Predict
-print("Score:", knn.score(X_test, y_test))
+# Predict and score
+score = knn.score(X_test_scaled, y_test)
+print(f"Test accuracy: {score:.3f}")
 </code></pre>
-  </div>
+    </div>
 
-  <div id="r" class="content" style="display:none;">
-    <h3>R Example</h3>
-    <pre><code># Install: install.packages("class")
+    <!-- R Example Tab -->
+    <div id="r" class="content hidden">
+      <h2>R KNN Example</h2>
+      <pre><code># Install: install.packages("class")
 library(class)
+library(caret)
 data(iris)
 
 # Split data
@@ -52,24 +140,395 @@ train_idx <- sample(1:nrow(iris), 0.8 * nrow(iris))
 train <- iris[train_idx, ]
 test <- iris[-train_idx, ]
 
+# Scale data (important for KNN!)
+preProc <- preProcess(train[, 1:4], method = c("center", "scale"))
+train_scaled <- predict(preProc, train[, 1:4])
+test_scaled <- predict(preProc, test[, 1:4])
+
 # Train KNN (k=3)
-pred <- knn(train[, 1:4], test[, 1:4], train$Species, k = 3)
+pred <- knn(train_scaled, test_scaled, train$Species, k = 3)
 
 # Accuracy
-mean(pred == test$Species)
+accuracy <- mean(pred == test$Species)
+cat("Test accuracy:", round(accuracy, 3), "\n")
 </code></pre>
-  </div>
+    </div>
 
-  <script>
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelector('.tab.active').classList.remove('active');
-        tab.classList.add('active');
-        const target = tab.dataset.target;
-        document.querySelectorAll('.content').forEach(el => el.style.display = 'none');
-        document.getElementById(target).style.display = 'block';
+    <!-- Interactive Visualization Tab -->
+    <div id="visualize" class="content hidden">
+      <h2>Interactive KNN Visualization</h2>
+      <p style="color: #666; margin: 1rem 0;">Click anywhere on the chart to add a new fruit, and see how KNN classifies it! Data is randomly generated based on real orange/grapefruit dimensions.</p>
+      
+      <div class="note">
+        <strong>💡 Educational Note:</strong> Standardization (scaling data to have mean=0 and std=1) is crucial for KNN because it ensures both features (diameter and weight) have equal influence on distance calculations. Without standardization, weight (which has larger numbers) would dominate the distance metric.
+      </div>
+      
+      <div class="visualization">
+        <canvas id="knnChart"></canvas>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <label for="k">K Value:</label>
+          <input type="number" id="k" min="1" max="15" step="2" value="3">
+        </div>
+        <div class="control-group toggle-switch">
+          <label for="standardize">Standardize Data:</label>
+          <input type="checkbox" id="standardize" checked>
+        </div>
+        <button onclick="resetChart()">Reset Chart</button>
+        <button onclick="regenerateData()">Regenerate Data</button>
+      </div>
+
+      <div id="result" class="result hidden">
+        <h3>Classification Result:</h3>
+        <p style="font-size: 1.2rem;">Your fruit is predicted to be: <span id="prediction" style="color: #27ae60; font-size: 1.4rem;"></span></p>
+        <h3>Nearest Neighbors (K=3):</h3>
+        <div id="neighborsList" class="neighbors-list"></div>
+      </div>
+    </div>
+
+    <script>
+      // Tab switching
+      let chart = null;
+      let orangeData = [];
+      let grapefruitData = [];
+      let scaler = {}; // To store mean and std for standardization
+      
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelector('.tab.active').classList.remove('active');
+          tab.classList.add('active');
+          const target = tab.dataset.target;
+          document.querySelectorAll('.content').forEach(el => el.classList.add('hidden'));
+          document.getElementById(target).classList.remove('hidden');
+          
+          // Initialize chart when visualization tab is opened
+          if (target === 'visualize' && !chart) {
+            generateData();
+            calculateScaler();
+            initChart();
+            addCanvasClickListener();
+          }
+        });
       });
-    });
-  </script>
+
+      // Generate random data based on real fruit dimensions
+      function generateData() {
+        // Realistic orange dimensions: diameter ~7cm, weight ~150g
+        // Realistic grapefruit dimensions: diameter ~10cm, weight ~300g
+        
+        orangeData = [];
+        grapefruitData = [];
+        
+        // Generate 30 oranges
+        for (let i = 0; i < 30; i++) {
+          const diameter = normalRandom(7, 0.8);
+          const weight = normalRandom(150, 20);
+          orangeData.push({x: diameter, y: weight});
+        }
+        
+        // Generate 30 grapefruits
+        for (let i = 0; i < 30; i++) {
+          const diameter = normalRandom(10, 1.2);
+          const weight = normalRandom(300, 35);
+          grapefruitData.push({x: diameter, y: weight});
+        }
+      }
+
+      // Calculate scaler (mean and std) for standardization
+      function calculateScaler() {
+        const allPoints = [...orangeData, ...grapefruitData];
+        const xMean = allPoints.reduce((sum, p) => sum + p.x, 0) / allPoints.length;
+        const yMean = allPoints.reduce((sum, p) => sum + p.y, 0) / allPoints.length;
+        const xStd = Math.sqrt(allPoints.reduce((sum, p) => sum + Math.pow(p.x - xMean, 2), 0) / (allPoints.length - 1));
+        const yStd = Math.sqrt(allPoints.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0) / (allPoints.length - 1));
+        
+        scaler = {xMean, yMean, xStd, yStd};
+      }
+
+      // Standardize a point
+      function standardizePoint(point) {
+        if (!scaler.xStd || !scaler.yStd) return point;
+        return {
+          x: (point.x - scaler.xMean) / scaler.xStd,
+          y: (point.y - scaler.yMean) / scaler.yStd
+        };
+      }
+
+      // Normal random number generator (Box-Muller transform)
+      function normalRandom(mean, stdDev) {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random(); // Converting [0,1) to (0,1)
+        while(v === 0) v = Math.random();
+        let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        return num * stdDev + mean;
+      }
+
+      // Initialize chart
+      function initChart() {
+        const ctx = document.getElementById('knnChart').getContext('2d');
+        chart = new Chart(ctx, {
+          type: 'scatter',
+          data: {
+            datasets: [
+              {
+                label: 'Oranges',
+                data: orangeData.map(p => ({x: p.x, y: p.y})),
+                backgroundColor: '#f39c12',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                borderWidth: 0
+              },
+              {
+                label: 'Grapefruits',
+                data: grapefruitData.map(p => ({x: p.x, y: p.y})),
+                backgroundColor: '#8e44ad',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                borderWidth: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                title: {display: true, text: 'Diameter (cm)'},
+                min: 4,
+                max: 14
+              },
+              y: {
+                title: {display: true, text: 'Weight (g)'},
+                min: 50,
+                max: 450
+              }
+            },
+            plugins: {
+              legend: {position: 'top'},
+              tooltip: {mode: 'point', intersect: false}
+            }
+          }
+        });
+      }
+
+      // Add canvas click listener
+      function addCanvasClickListener() {
+        const canvas = document.getElementById('knnChart');
+        canvas.addEventListener('click', handleCanvasClick);
+      }
+
+      // Handle canvas click
+      function handleCanvasClick(event) {
+        if (!chart) return;
+        
+        // Get click coordinates relative to chart
+        const rect = chart.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        // Convert pixel coordinates to data coordinates
+        const scaleX = chart.scales.x;
+        const scaleY = chart.scales.y;
+        const diameter = scaleX.getValueForPixel(x);
+        const weight = scaleY.getValueForPixel(y);
+        
+        // Classify the point
+        classifyPoint(diameter, weight);
+      }
+
+      // Classify a point
+      function classifyPoint(diameter, weight) {
+        const k = parseInt(document.getElementById('k').value);
+        const standardize = document.getElementById('standardize').checked;
+        
+        // Remove existing custom point and lines
+        chart.data.datasets = chart.data.datasets.filter(d => d.label !== 'Your Fruit' && d.label !== 'Neighbor Lines');
+        
+        // Add new point (green dot instead of asterisk)
+        chart.data.datasets.push({
+          label: 'Your Fruit',
+          data: [{x: diameter, y: weight}],
+          backgroundColor: '#27ae60',
+          pointRadius: 12,
+          pointHoverRadius: 14,
+          borderWidth: 2,
+          borderColor: '#1e8449'
+        });
+
+        // Prepare all points
+        const allPoints = [];
+        orangeData.forEach(p => allPoints.push({...p, type: 'orange'}));
+        grapefruitData.forEach(p => allPoints.push({...p, type: 'grapefruit'}));
+
+        // Calculate distances
+        const userPoint = {x: diameter, y: weight};
+        allPoints.forEach(p => {
+          let p1 = userPoint;
+          let p2 = p;
+          
+          // Standardize if enabled
+          if (standardize) {
+            p1 = standardizePoint(p1);
+            p2 = standardizePoint(p2);
+          }
+          
+          p.distance = getDistance(p1, p2);
+        });
+
+        // Sort by distance
+        allPoints.sort((a, b) => a.distance - b.distance);
+
+        // Get K nearest
+        const nearest = allPoints.slice(0, k);
+
+        // Count votes
+        const votes = {orange: 0, grapefruit: 0};
+        nearest.forEach(p => votes[p.type]++);
+
+        // Predict
+        const prediction = votes.orange > votes.grapefruit ? 'ORANGE' : 'GRAPEFRUIT';
+        document.getElementById('prediction').textContent = prediction;
+        document.getElementById('result').classList.remove('hidden');
+
+        // Update neighbors list
+        updateNeighborsList(nearest);
+
+        // Highlight nearest neighbors (add dark red border)
+        updateNeighborHighlighting(nearest);
+
+        // Draw lines to nearest neighbors
+        drawNeighborLines(userPoint, nearest);
+
+        // Update chart
+        chart.update();
+      }
+
+      // Update neighbors list
+      function updateNeighborsList(neighbors) {
+        const list = document.getElementById('neighborsList');
+        list.innerHTML = '';
+        
+        neighbors.forEach((neighbor, index) => {
+          const item = document.createElement('div');
+          item.className = 'neighbor-item';
+          item.innerHTML = `
+            <strong>Neighbor #${index+1}:</strong> ${neighbor.type.toUpperCase()}<br>
+            <small>Diameter: ${neighbor.x.toFixed(1)}cm, Weight: ${neighbor.y.toFixed(0)}g, Distance: ${neighbor.distance.toFixed(2)}</small>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      // Update neighbor highlighting (add dark red border)
+      function updateNeighborHighlighting(neighbors) {
+        chart.data.datasets.forEach(dataset => {
+          if (dataset.label === 'Oranges' || dataset.label === 'Grapefruits') {
+            dataset.borderWidth = dataset.data.map(point => {
+              const isNearest = neighbors.some(n => {
+                return Math.abs(n.x - point.x) < 0.01 && Math.abs(n.y - point.y) < 0.01;
+              });
+              return isNearest ? 4 : 0;
+            });
+            dataset.borderColor = dataset.data.map(point => {
+              const isNearest = neighbors.some(n => {
+                return Math.abs(n.x - point.x) < 0.01 && Math.abs(n.y - point.y) < 0.01;
+              });
+              return isNearest ? '#c0392b' : 'transparent';
+            });
+          }
+        });
+      }
+
+      // Draw dotted lines to nearest neighbors
+      function drawNeighborLines(userPoint, neighbors) {
+        const lineData = [];
+        
+        neighbors.forEach(neighbor => {
+          lineData.push(...[
+            {x: userPoint.x, y: userPoint.y},
+            {x: neighbor.x, y: neighbor.y},
+            {x: null, y: null} // Add null to separate lines
+          ]);
+        });
+        
+        chart.data.datasets.push({
+          label: 'Neighbor Lines',
+          data: lineData,
+          type: 'line',
+          borderColor: '#e74c3c',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false,
+          order: -1 // Draw lines behind other points
+        });
+      }
+
+      // Reset chart
+      function resetChart() {
+        if (!chart) return;
+        
+        // Remove custom point and lines, reset borders
+        chart.data.datasets = chart.data.datasets.filter(d => d.label !== 'Your Fruit' && d.label !== 'Neighbor Lines');
+        chart.data.datasets.forEach(dataset => {
+          if (dataset.label === 'Oranges' || dataset.label === 'Grapefruits') {
+            dataset.borderWidth = 0;
+            dataset.borderColor = 'transparent';
+          }
+        });
+
+        // Reset result
+        document.getElementById('result').classList.add('hidden');
+        chart.update();
+      }
+
+      // Regenerate data
+      function regenerateData() {
+        if (!chart) return;
+        
+        generateData();
+        calculateScaler();
+        chart.data.datasets = [
+          {
+            label: 'Oranges',
+            data: orangeData.map(p => ({x: p.x, y: p.y})),
+            backgroundColor: '#f39c12',
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 0
+          },
+          {
+            label: 'Grapefruits',
+            data: grapefruitData.map(p => ({x: p.x, y: p.y})),
+            backgroundColor: '#8e44ad',
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 0
+          }
+        ];
+        
+        resetChart();
+        chart.update();
+      }
+
+      // Distance calculation
+      function getDistance(p1, p2) {
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+      }
+
+      // Initialize chart if visualization tab is active on page load
+      document.addEventListener('DOMContentLoaded', () => {
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab && activeTab.dataset.target === 'visualize') {
+          generateData();
+          calculateScaler();
+          initChart();
+          addCanvasClickListener();
+        }
+      });
+    </script>
+  </div>
 </body>
 </html>
