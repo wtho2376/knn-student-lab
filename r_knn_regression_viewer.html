@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>R KNN Regression — Interactive Code</title>
+  <link rel="stylesheet" href="code-viewer.css" />
+</head>
+<body>
+  <div class="header">
+    <h1>Interactive R Code — KNN Regression</h1>
+    <div class="sub">
+      Hover lines to see explanations from <code># @section</code> blocks. Click to pin. Press <kbd>Esc</kbd> to unpin.
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="toolbar">
+        <a href="index.html">← Back to main</a>
+        <span class="badge" data-badge>loading…</span>
+        <span class="badge" data-pin>Hover</span>
+        <span style="margin-left:auto" class="badge" data-filename></span>
+      </div>
+      <div class="code" aria-label="code">
+        <ol id="codeLines"></ol>
+      </div>
+    </div>
+
+    <div class="panel right">
+      <div class="meta">
+        <h2 data-meta="title">Loading…</h2>
+        <div class="small" data-meta="dataset"></div>
+        <div style="margin-top:10px" data-meta="goal"></div>
+        <div style="margin-top:10px" data-meta="learn"></div>
+        <div class="footer-note" style="margin-top:12px">
+          Tip: press <kbd>Esc</kbd> to return to hover mode.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 data-section="name">Hover the code</h3>
+        <div class="kv">
+          <div>Active section</div>
+          <div data-section="range"></div>
+        </div>
+        <div class="body" data-section="body"></div>
+      </div>
+
+      <div class="card">
+        <h3>How to run</h3>
+        <div class="body">
+          <div>From the repo folder:</div>
+          <pre style="margin:10px 0 0; background: rgba(255,255,255,0.06); padding:10px; border-radius:10px; overflow:auto;">Rscript R-Example/r_knn_regression.R</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    history.replaceState(null, '', 'r_knn_regression_viewer.html?file=' + encodeURIComponent('R-Example/r_knn_regression.R'));
+  </script>
+  <script src="code-viewer.js"></script>
+</body>
+</html>
