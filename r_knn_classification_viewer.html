@@ -57,11 +57,14 @@
     </div>
   </div>
 
-  <script>
-    // Point the viewer at the R file.
-    // Works on GitHub Pages because it fetches a same-origin path.
-    history.replaceState(null, '', 'r_knn_classification_viewer.html?file=' + encodeURIComponent('R-Example/r_knn_classification.R'));
-  </script>
   <script src="code-viewer.js"></script>
+  <script>
+    // Ensure the viewer has a file=... query param.
+    // NOTE: only run this when file is missing, otherwise it can interfere with routing.
+    const p = new URLSearchParams(location.search);
+    if (!p.get('file')) {
+      location.replace('r_knn_classification_viewer.html?file=' + encodeURIComponent('R-Example/r_knn_classification.R'));
+    }
+  </script>
 </body>
 </html>

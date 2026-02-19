@@ -57,9 +57,12 @@
     </div>
   </div>
 
-  <script>
-    history.replaceState(null, '', 'r_knn_regression_viewer.html?file=' + encodeURIComponent('R-Example/r_knn_regression.R'));
-  </script>
   <script src="code-viewer.js"></script>
+  <script>
+    const p = new URLSearchParams(location.search);
+    if (!p.get('file')) {
+      location.replace('r_knn_regression_viewer.html?file=' + encodeURIComponent('R-Example/r_knn_regression.R'));
+    }
+  </script>
 </body>
 </html>
