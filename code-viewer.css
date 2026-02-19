@@ -38,11 +38,8 @@ body {
 }
 
 .wrap {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 14px;
   padding: 14px;
-  max-width: 1400px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -79,84 +76,25 @@ body {
 .badge.ok { color: var(--accent2); border-color: rgba(84,210,165,0.35); }
 .badge.warn { color: var(--warn); border-color: rgba(255,209,102,0.35); }
 
-.code {
-  height: calc(100vh - 96px);
-  overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
-  line-height: 1.55;
-  background: rgba(0,0,0,0.18);
-}
-
-.code ol {
-  list-style: none;
-  margin: 0;
-  padding: 10px 0;
-}
-
-.code li {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 12px;
-  padding: 0 14px;
-  border-left: 3px solid transparent;
-}
-
-.code li:hover { background: rgba(255,255,255,0.04); }
-
-.code li.active {
-  background: rgba(106,166,255,0.10);
-  border-left-color: rgba(106,166,255,0.9);
-}
-
-.ln {
-  color: rgba(168,176,199,0.8);
-  user-select: none;
-  text-align: right;
-  padding-right: 6px;
-}
-
-.txt { white-space: pre; overflow-x: auto; }
-
-.right {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-}
-
 .meta {
-  padding: 12px 14px;
+  padding: 14px 14px 6px;
 }
 .meta h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 18px;
 }
 .meta .small { margin-top: 6px; color: var(--muted); font-size: 13px; }
 
-.card {
-  border-top: 1px solid var(--border);
-  padding: 12px 14px;
-}
-
-.card h3 {
-  margin: 0;
-  font-size: 14px;
-  color: var(--accent);
-}
-
-.card .body {
-  margin-top: 10px;
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .kv {
   margin-top: 10px;
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.footer-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
 }
 
 kbd {
@@ -169,13 +107,66 @@ kbd {
   color: var(--text);
 }
 
-.footer-note {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 10px;
+/* Tutorial blocks */
+.tutorial {
+  padding: 8px 14px 16px;
 }
 
-@media (max-width: 1000px) {
-  .wrap { grid-template-columns: 1fr; }
-  .code { height: 55vh; }
+.tblock {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.10);
+}
+
+.tblock-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.explain {
+  white-space: pre-wrap;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0 6px;
+}
+
+.copybtn {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+.copybtn:hover { background: rgba(255,255,255,0.08); }
+
+.codeblock {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: auto;
+}
+
+.codeblock code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre;
 }

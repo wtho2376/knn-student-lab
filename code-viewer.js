@@ -1,15 +1,19 @@
 /*
-  Minimal static code viewer for GitHub Pages.
-  Features:
-  - Loads a text file via fetch() (works on GitHub Pages)
-  - Renders line-by-line with line numbers
-  - Parses structured comment blocks:
-      # @section <Name>
-      # <freeform explanation lines...>
-    and also optional top headers:
-      # @title, # @dataset, # @goal, # @what_you_learn
-  - Hover a line to see the nearest preceding @section explanation
-  - Click a line to pin/unpin the current section
+  Static tutorial-style code viewer for GitHub Pages.
+
+  Renders the .R file as a sequence of blocks:
+    [Explanation outside code] + [Code block (code-only)]
+
+  Source format (Approach B):
+    # @section <Name>
+    # <explanation line 1>
+    # <explanation line 2>
+    <code lines...>
+
+  Notes:
+  - Code blocks do NOT include the @section/explanation comment lines.
+  - Top headers like @title/@dataset/@goal/@what_you_learn are parsed for meta,
+    and are not included in code blocks.
 */
 
 function escapeHtml(s) {
@@ -19,105 +23,100 @@ function escapeHtml(s) {
     .replaceAll('>', '&gt;');
 }
 
-function parseRWithSections(text) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-
+function parseMeta(lines) {
   const meta = { title: null, dataset: null, goal: [], what_you_learn: [] };
-  const sections = []; // {name, startLine, endLine, explainLines[]}
 
-  // Parse meta headers at top (first ~80 lines), until first non-comment code line.
-  let i = 0;
-  let seenNonHeaderCode = false;
-  for (; i < Math.min(lines.length, 120); i++) {
-    const l = lines[i];
-    const trimmed = l.trim();
+  for (let i = 0; i < Math.min(lines.length, 180); i++) {
+    const t = lines[i].trim();
+    if (!t.startsWith('#')) break;
 
-    if (trimmed === '' || trimmed.startsWith('#')) {
-      const m = trimmed.match(/^#\s*@([a-zA-Z0-9_]+)\s*(.*)$/);
-      if (m) {
-        const key = m[1];
-        const rest = (m[2] || '').trim();
-        if (key === 'title') meta.title = rest;
-        if (key === 'dataset') meta.dataset = rest;
-        if (key === 'goal') meta.goal.push(rest);
-        if (key === 'what_you_learn') {
-          // Next lines may contain bullet items like "# - ..."
-          // We handle bullets later; keep this marker as a state.
-        }
+    const m = t.match(/^#\s*@([a-zA-Z0-9_]+)\s*(.*)$/);
+    if (!m) continue;
+
+    const key = m[1];
+    const rest = (m[2] || '').trim();
+    if (key === 'title') meta.title = rest;
+    if (key === 'dataset') meta.dataset = rest;
+    if (key === 'goal') meta.goal.push(rest);
+
+    if (key === 'what_you_learn') {
+      const bullets = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        const tj = lines[j].trim();
+        if (!tj.startsWith('#')) break;
+        const b = tj.match(/^#\s*-\s*(.*)$/);
+        if (b) bullets.push(b[1]);
+        else if (tj.startsWith('# @')) break;
+      }
+      meta.what_you_learn = bullets;
+    }
+  }
+
+  return meta;
+}
+
+function splitIntoBlocks(lines) {
+  // Returns blocks: { name, explainLines[], codeLines[] }
+  const blocks = [];
+
+  function pushBlock(block) {
+    if (!block) return;
+    const code = (block.codeLines || []).join('\n').trimEnd();
+    if (block.explainLines.length === 0 && code.length === 0) return;
+    blocks.push(block);
+  }
+
+  let current = null;
+
+  // Skip top header comments (like @title/@dataset/@goal/@what_you_learn)
+  let startIdx = 0;
+  for (; startIdx < lines.length; startIdx++) {
+    const t = lines[startIdx].trim();
+    if (t === '' || t.startsWith('#')) continue;
+    break;
+  }
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+
+    const sec = t.match(/^#\s*@section\s+(.*)$/);
+    if (sec) {
+      // finalize previous
+      pushBlock(current);
+
+      current = {
+        name: (sec[1] || '').trim() || 'Section',
+        explainLines: [],
+        codeLines: [],
+      };
+
+      // collect explanation comment lines immediately after @section
+      for (let j = i + 1; j < lines.length; j++) {
+        const tj = lines[j].trim();
+        if (tj === '') break;
+        if (tj.startsWith('# @section')) break;
+        if (!tj.startsWith('#')) break;
+        current.explainLines.push(lines[j].replace(/^\s*#\s?/, ''));
+        i = j; // advance outer loop
       }
       continue;
     }
 
-    // Stop meta scan when first code line appears.
-    seenNonHeaderCode = true;
-    break;
-  }
-
-  // Parse sections anywhere.
-  for (let idx = 0; idx < lines.length; idx++) {
-    const l = lines[idx];
-    const trimmed = l.trim();
-    const m = trimmed.match(/^#\s*@section\s+(.*)$/);
-    if (!m) continue;
-
-    const name = (m[1] || '').trim() || 'Section';
-    const explainLines = [];
-
-    // Collect subsequent comment lines until blank or non-comment or another @section
-    for (let j = idx + 1; j < lines.length; j++) {
-      const t = lines[j].trim();
-      if (t.startsWith('# @section')) break;
-      if (t === '') break;
-      if (!t.startsWith('#')) break;
-
-      // Strip leading # and one space if present
-      explainLines.push(lines[j].replace(/^\s*#\s?/, ''));
+    // If we haven't seen any @section yet, create an implicit block.
+    if (!current) {
+      current = { name: 'Code', explainLines: [], codeLines: [] };
     }
 
-    sections.push({
-      name,
-      startLine: idx + 1,
-      endLine: null, // fill later
-      explainLines,
-    });
+    // Exclude any other @meta lines from code blocks
+    if (t.startsWith('# @')) continue;
+
+    // Keep regular code lines (including normal inline comments)
+    current.codeLines.push(raw);
   }
 
-  // Compute endLine for each section: until next section start - 1, else EOF
-  for (let s = 0; s < sections.length; s++) {
-    const cur = sections[s];
-    const next = sections[s + 1];
-    cur.endLine = (next ? next.startLine - 1 : lines.length);
-  }
-
-  // Parse what_you_learn bullets (simple): find marker line and read consecutive '# - ...'
-  const wyl = [];
-  for (let idx = 0; idx < Math.min(lines.length, 160); idx++) {
-    const t = lines[idx].trim();
-    if (t.startsWith('# @what_you_learn')) {
-      for (let j = idx + 1; j < lines.length; j++) {
-        const tj = lines[j].trim();
-        if (!tj.startsWith('#')) break;
-        const bullet = tj.match(/^#\s*-\s*(.*)$/);
-        if (bullet) wyl.push(bullet[1]);
-        else if (tj === '#') continue;
-        else if (tj.startsWith('# @')) break;
-      }
-      break;
-    }
-  }
-  meta.what_you_learn = wyl;
-
-  return { lines, meta, sections };
-}
-
-function sectionForLine(sections, lineNo) {
-  // nearest preceding section start
-  let best = null;
-  for (const s of sections) {
-    if (s.startLine <= lineNo) best = s;
-    else break;
-  }
-  return best;
+  pushBlock(current);
+  return blocks;
 }
 
 function renderMeta(meta) {
@@ -126,7 +125,7 @@ function renderMeta(meta) {
   const goalEl = document.querySelector('[data-meta=goal]');
   const learnEl = document.querySelector('[data-meta=learn]');
 
-  titleEl.textContent = meta.title || 'Code Viewer';
+  titleEl.textContent = meta.title || 'Interactive Code';
   datasetEl.textContent = meta.dataset ? `Dataset: ${meta.dataset}` : '';
 
   goalEl.innerHTML = meta.goal && meta.goal.length
@@ -138,26 +137,61 @@ function renderMeta(meta) {
     : '';
 }
 
-function renderSectionCard(section) {
-  const nameEl = document.querySelector('[data-section=name]');
-  const bodyEl = document.querySelector('[data-section=body]');
-  const rangeEl = document.querySelector('[data-section=range]');
+function renderBlocks(blocks) {
+  const root = document.querySelector('#tutorial');
+  root.innerHTML = '';
 
-  if (!section) {
-    nameEl.textContent = 'Hover the code';
-    bodyEl.textContent = 'Move your mouse over the code on the left to see explanations.';
-    rangeEl.textContent = '';
-    return;
+  for (const b of blocks) {
+    const section = document.createElement('section');
+    section.className = 'tblock';
+
+    const h = document.createElement('h3');
+    h.className = 'tblock-title';
+    h.textContent = b.name;
+
+    const explain = document.createElement('div');
+    explain.className = 'explain';
+
+    if (b.explainLines && b.explainLines.length) {
+      explain.textContent = b.explainLines.join('\n');
+    } else {
+      explain.textContent = '';
+      explain.style.display = 'none';
+    }
+
+    const pre = document.createElement('pre');
+    pre.className = 'codeblock';
+
+    const code = document.createElement('code');
+    code.innerHTML = escapeHtml((b.codeLines || []).join('\n').trimEnd());
+    pre.appendChild(code);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'copybtn';
+    btn.textContent = 'Copy code';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText((b.codeLines || []).join('\n').trimEnd());
+        btn.textContent = 'Copied';
+        setTimeout(() => (btn.textContent = 'Copy code'), 900);
+      } catch {
+        btn.textContent = 'Copy failed';
+        setTimeout(() => (btn.textContent = 'Copy code'), 900);
+      }
+    });
+
+    actions.appendChild(btn);
+
+    section.appendChild(h);
+    section.appendChild(explain);
+    section.appendChild(actions);
+    section.appendChild(pre);
+    root.appendChild(section);
   }
-
-  nameEl.textContent = section.name;
-  rangeEl.textContent = `Lines ${section.startLine}–${section.endLine}`;
-
-  const text = (section.explainLines && section.explainLines.length)
-    ? section.explainLines.join('\n')
-    : 'No explanation block found for this section.';
-
-  bodyEl.textContent = text;
 }
 
 async function main() {
@@ -186,100 +220,17 @@ async function main() {
   } catch (e) {
     badge.classList.add('warn');
     badge.textContent = 'load failed';
-    renderSectionCard(null);
     document.querySelector('[data-meta=title]').textContent = 'Load failed';
     document.querySelector('[data-meta=dataset]').textContent = String(e);
     return;
   }
 
-  const { lines, meta, sections } = parseRWithSections(text);
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const meta = parseMeta(lines);
   renderMeta(meta);
 
-  const ol = document.querySelector('#codeLines');
-  ol.innerHTML = '';
-
-  const frag = document.createDocumentFragment();
-  for (let i = 0; i < lines.length; i++) {
-    const lineNo = i + 1;
-    const li = document.createElement('li');
-    li.dataset.line = String(lineNo);
-
-    const ln = document.createElement('div');
-    ln.className = 'ln';
-    ln.textContent = String(lineNo);
-
-    const txt = document.createElement('div');
-    txt.className = 'txt';
-    txt.innerHTML = escapeHtml(lines[i]);
-
-    li.appendChild(ln);
-    li.appendChild(txt);
-    frag.appendChild(li);
-  }
-  ol.appendChild(frag);
-
-  let pinned = false;
-  let pinnedSection = null;
-  let activeLine = null;
-
-  function setActiveLine(lineEl) {
-    if (activeLine) activeLine.classList.remove('active');
-    activeLine = lineEl;
-    if (activeLine) activeLine.classList.add('active');
-  }
-
-  function updateFromLine(lineNo) {
-    const s = sectionForLine(sections, lineNo);
-    renderSectionCard(s);
-  }
-
-  renderSectionCard(sections.length ? sections[0] : null);
-
-  ol.addEventListener('mousemove', (ev) => {
-    const li = ev.target.closest('li[data-line]');
-    if (!li) return;
-    setActiveLine(li);
-    if (pinned) return;
-    const lineNo = Number(li.dataset.line);
-    updateFromLine(lineNo);
-  });
-
-  ol.addEventListener('click', (ev) => {
-    const li = ev.target.closest('li[data-line]');
-    if (!li) return;
-    const lineNo = Number(li.dataset.line);
-    const s = sectionForLine(sections, lineNo);
-
-    if (!pinned) {
-      pinned = true;
-      pinnedSection = s;
-      renderSectionCard(s);
-      document.querySelector('[data-pin]').textContent = 'Pinned';
-      return;
-    }
-
-    // If pinned and click inside same section: unpin. Else pin to new section.
-    if (pinnedSection && s && pinnedSection.startLine === s.startLine) {
-      pinned = false;
-      pinnedSection = null;
-      document.querySelector('[data-pin]').textContent = 'Hover';
-      updateFromLine(lineNo);
-    } else {
-      pinnedSection = s;
-      renderSectionCard(s);
-      document.querySelector('[data-pin]').textContent = 'Pinned';
-    }
-  });
-
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') {
-      pinned = false;
-      pinnedSection = null;
-      document.querySelector('[data-pin]').textContent = 'Hover';
-      if (activeLine) updateFromLine(Number(activeLine.dataset.line));
-      else renderSectionCard(sections[0] || null);
-    }
-  });
+  const blocks = splitIntoBlocks(lines);
+  renderBlocks(blocks);
 }
 
 document.addEventListener('DOMContentLoaded', main);

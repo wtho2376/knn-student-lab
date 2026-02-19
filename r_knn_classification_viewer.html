@@ -19,39 +19,24 @@
       <div class="toolbar">
         <a href="index.html">← Back to main</a>
         <span class="badge" data-badge>loading…</span>
-        <span class="badge" data-pin>Hover</span>
         <span style="margin-left:auto" class="badge" data-filename></span>
       </div>
-      <div class="code" aria-label="code">
-        <ol id="codeLines"></ol>
-      </div>
-    </div>
 
-    <div class="panel right">
       <div class="meta">
         <h2 data-meta="title">Loading…</h2>
         <div class="small" data-meta="dataset"></div>
         <div style="margin-top:10px" data-meta="goal"></div>
         <div style="margin-top:10px" data-meta="learn"></div>
         <div class="footer-note" style="margin-top:12px">
-          Tip: the viewer chooses the *nearest preceding* <code>@section</code> for the line you’re hovering.
+          Code blocks show <strong>code only</strong>. Explanations come from the <code># @section</code> blocks.
         </div>
       </div>
 
-      <div class="card">
-        <h3 data-section="name">Hover the code</h3>
-        <div class="kv">
-          <div>Active section</div>
-          <div data-section="range"></div>
-        </div>
-        <div class="body" data-section="body"></div>
-      </div>
+      <div class="tutorial" id="tutorial"></div>
 
-      <div class="card">
-        <h3>How to run</h3>
-        <div class="body">
-          <div>From the repo folder:</div>
-          <pre style="margin:10px 0 0; background: rgba(255,255,255,0.06); padding:10px; border-radius:10px; overflow:auto;">Rscript R-Example/r_knn_classification.R</pre>
+      <div class="meta" style="padding-top:0">
+        <div class="footer-note">
+          Run this example with: <kbd>Rscript R-Example/r_knn_classification.R</kbd>
         </div>
       </div>
     </div>
