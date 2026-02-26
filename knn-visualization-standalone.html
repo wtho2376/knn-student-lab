@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive KNN Visualization</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; margin: 2rem; background: #f8f9fa; }
+    .container { max-width: 1400px; margin: 0 auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { color: #2c3e50; margin-bottom: 1.5rem; text-align: center; }
+    h2 { color: #34495e; margin: 2rem 0 1rem; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+    h3 { color: #34495e; margin: 1.5rem 0 0.5rem; }
+    .visualization-container { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin: 2rem 0; }
+    .visualization { text-align: center; position: relative; }
+    #knnChart { max-width: 800px; margin: 0 auto; height: 400px; cursor: crosshair; }
+    .table-container { background: #f8f9fa; padding: 1.5rem; border-radius: 5px; overflow-y: auto; max-height: 500px; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.7rem; }
+    .data-table th, .data-table td { padding: 0.6rem; border-bottom: 1px solid #eee; text-align: left; }
+    .data-table th { background: #e9ecef; font-weight: 600; cursor: pointer; user-select: none; font-size: 0.75rem; }
+    .data-table th:hover { background: #dee2e6; }
+    .sort-icon { margin-left: 0.5rem; font-size: 0.6rem; }
+    .controls { margin: 2rem 0; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    label { font-weight: 500; color: #34495e; }
+    input[type="number"] { padding: 0.5rem; border: 1px solid #ddd; border-radius: 3px; width: 120px; }
+    .toggle-switch { display: flex; align-items: center; gap: 0.5rem; }
+    .toggle-switch input { width: auto; }
+    button { padding: 0.7rem 1.5rem; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 500; transition: background 0.3s; }
+    button:hover { background: #2980b9; }
+    .result { margin: 2rem 0; padding: 1.5rem; background: #e8f5e9; border-radius: 5px; border-left: 5px solid #4caf50; font-weight: 500; }
+    .result.hidden { display: none; }
+    .neighbors-list { margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 5px; max-height: 200px; overflow-y: auto; }
+    .neighbor-item { padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .neighbor-item:last-child { border-bottom: none; }
+    .note { margin: 1rem 0; padding: 1rem; background: #fff3cd; border-radius: 5px; border-left: 5px solid #ffc107; font-style: italic; }
+    .hidden { display: none; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Interactive KNN Visualization</h1>
+    <p style="color: #666; margin-bottom: 2rem; font-size: 1.1rem; text-align: center;">Learn KNN through interactive visualization - Click anywhere on the chart to add a new fruit!</p>
+    
+    <div class="note">
+      <strong>💡 Educational Note:</strong> Standardization (scaling data to have mean=0 and std=1) is crucial for KNN because it ensures both features (diameter and weight) have equal influence on distance calculations. Without standardization, weight (which has larger numbers) would dominate the distance metric.
+    </div>
+    
+    <div class="visualization-container">
+      <div class="visualization">
+        <canvas id="knnChart"></canvas>
+      </div>
+      
+      <div class="table-container">
+        <h3>Data & Distances</h3>
+        <p style="color: #666; margin: 0.5rem 0; font-size: 0.9rem;">Click on the chart to see distances from your point:</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th onclick="sortTable('type')">Type <span class="sort-icon">↑↓</span></th>
+              <th onclick="sortTable('diameter')">Diameter (cm) <span class="sort-icon">↑↓</span></th>
+              <th onclick="sortTable('weight')">Weight (g) <span class="sort-icon">↑↓</span></th>
+              <th id="std-diam-header" onclick="sortTable('diameter_std')">Diameter (Std) <span class="sort-icon">↑↓</span></th>
+              <th id="std-weight-header" onclick="sortTable('weight_std')">Weight (Std) <span class="sort-icon">↑↓</span></th>
+              <th onclick="sortTable('distance')">Distance <span class="sort-icon">↑↓</span></th>
+            </tr>
+          </thead>
+          <tbody id="data-table-body">
+            <tr><td colspan="6" style="text-align: center;">Click on the chart to add a point</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="k">K Value:</label>
+        <input type="number" id="k" min="1" max="15" step="2" value="3">
+      </div>
+      <div class="control-group toggle-switch">
+        <label for="standardize">Standardize Data:</label>
+        <input type="checkbox" id="standardize" checked onchange="updateTable()">
+      </div>
+      <button onclick="resetChart()">Reset Chart</button>
+      <button onclick="regenerateData()">Regenerate Data</button>
+    </div>
+
+    <div id="result" class="result hidden">
+      <h3>Classification Result:</h3>
+      <p style="font-size: 1.2rem;">Your fruit is predicted to be: <span id="prediction" style="color: #27ae60; font-size: 1.4rem;"></span></p>
+      <h3 id="neighborsHeading">Nearest Neighbors (K=3):</h3>
+      <div id="neighborsList" class="neighbors-list"></div>
+    </div>
+
+    <script>
+      // Register Chart.js plugin
+      Chart.register(ChartDataLabels);
+      
+      let chart = null;
+      let orangeData = [];
+      let grapefruitData = [];
+      let scaler = {};
+      let userPoint = null;
+      let sortedData = [];
+      let sortColumn = 'distance';
+      let sortOrder = 'asc';
+      
+      // Initialize chart on page load
+      document.addEventListener('DOMContentLoaded', () => {
+        generateData();
+        calculateScaler();
+        initChart();
+        addCanvasClickListener();
+        updateTableVisibility();
+      });
+
+      // Generate random data based on real fruit dimensions
+      function generateData() {
+        orangeData = [];
+        grapefruitData = [];
+        
+        // Generate 30 oranges
+        for (let i = 0; i < 30; i++) {
+          const diameter = normalRandom(7, 0.8);
+          const weight = normalRandom(150, 20);
+          orangeData.push({x: diameter, y: weight});
+        }
+        
+        // Generate 30 grapefruits
+        for (let i = 0; i < 30; i++) {
+          const diameter = normalRandom(10, 1.2);
+          const weight = normalRandom(300, 35);
+          grapefruitData.push({x: diameter, y: weight});
+        }
+      }
+
+      // Calculate scaler (mean and std) for standardization
+      function calculateScaler() {
+        const allPoints = [...orangeData, ...grapefruitData];
+        const xMean = allPoints.reduce((sum, p) => sum + p.x, 0) / allPoints.length;
+        const yMean = allPoints.reduce((sum, p) => sum + p.y, 0) / allPoints.length;
+        const xStd = Math.sqrt(allPoints.reduce((sum, p) => sum + Math.pow(p.x - xMean, 2), 0) / (allPoints.length - 1));
+        const yStd = Math.sqrt(allPoints.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0) / (allPoints.length - 1));
+        
+        scaler = {xMean, yMean, xStd, yStd};
+      }
+
+      // Standardize a point
+      function standardizePoint(point) {
+        if (!scaler.xStd || !scaler.yStd) return point;
+        return {
+          x: (point.x - scaler.xMean) / scaler.xStd,
+          y: (point.y - scaler.yMean) / scaler.yStd
+        };
+      }
+
+      // Normal random number generator (Box-Muller transform)
+      function normalRandom(mean, stdDev) {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random();
+        while(v === 0) v = Math.random();
+        let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        return num * stdDev + mean;
+      }
+
+      // Initialize chart
+      function initChart() {
+        const ctx = document.getElementById('knnChart').getContext('2d');
+        chart = new Chart(ctx, {
+          type: 'scatter',
+          data: {
+            datasets: [
+              {
+                label: 'Oranges',
+                data: orangeData.map(p => ({x: p.x, y: p.y})),
+                backgroundColor: '#f39c12',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                borderWidth: 0
+              },
+              {
+                label: 'Grapefruits',
+                data: grapefruitData.map(p => ({x: p.x, y: p.y})),
+                backgroundColor: '#8e44ad',
+                pointRadius: 8,
+                pointHoverRadius: 10,
+                borderWidth: 0
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                title: {display: true, text: 'Diameter (cm)'},
+                min: 4,
+                max: 14
+              },
+              y: {
+                title: {display: true, text: 'Weight (g)'},
+                min: 50,
+                max: 450
+              }
+            },
+            plugins: {
+              legend: {position: 'top'},
+              tooltip: {mode: 'point', intersect: false, filter: function(tooltipItem) { return tooltipItem.dataset.label !== 'Neighbor Lines'; }},
+              datalabels: {
+                display: function(context) {
+                  return context.dataset.label === 'Your Fruit';
+                },
+                color: '#ffffff',
+                backgroundColor: '#1e8449',
+                borderRadius: 5,
+                padding: 4,
+                font: {
+                  weight: 'bold',
+                  size: 12
+                },
+                formatter: function(value, context) {
+                  const prediction = document.getElementById('prediction').textContent;
+                  return prediction || '?';
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Add canvas click listener
+      function addCanvasClickListener() {
+        const canvas = document.getElementById('knnChart');
+        canvas.addEventListener('click', handleCanvasClick);
+      }
+
+      // Handle canvas click
+      function handleCanvasClick(event) {
+        if (!chart) return;
+        
+        // Get click coordinates relative to chart
+        const rect = chart.canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
+        // Convert pixel coordinates to data coordinates
+        const scaleX = chart.scales.x;
+        const scaleY = chart.scales.y;
+        const diameter = scaleX.getValueForPixel(x);
+        const weight = scaleY.getValueForPixel(y);
+        
+        // Classify the point
+        classifyPoint(diameter, weight);
+      }
+
+      // Classify a point
+      function classifyPoint(diameter, weight) {
+        const k = parseInt(document.getElementById('k').value);
+        const standardize = document.getElementById('standardize').checked;
+        
+        userPoint = {x: diameter, y: weight};
+        
+        // Remove existing custom point and lines
+        chart.data.datasets = chart.data.datasets.filter(d => d.label !== 'Your Fruit' && d.label !== 'Neighbor Lines');
+        
+        // Add new point
+        chart.data.datasets.push({
+          label: 'Your Fruit',
+          data: [{x: diameter, y: weight}],
+          backgroundColor: '#27ae60',
+          pointRadius: 12,
+          pointHoverRadius: 14,
+          borderWidth: 2,
+          borderColor: '#1e8449',
+          datalabels: { enabled: true }
+        });
+
+        // Prepare all points
+        const allPoints = [];
+        orangeData.forEach(p => allPoints.push({...p, type: 'orange'}));
+        grapefruitData.forEach(p => allPoints.push({...p, type: 'grapefruit'}));
+
+        // Calculate distances and standardized values
+        allPoints.forEach(p => {
+          let p1 = userPoint;
+          let p2 = p;
+          
+          // Standardize values
+          p.diameter_std = (p.x - scaler.xMean) / scaler.xStd;
+          p.weight_std = (p.y - scaler.yMean) / scaler.yStd;
+          
+          // Calculate distance with/without standardization
+          if (standardize) {
+            p1 = standardizePoint(p1);
+            p2 = standardizePoint(p2);
+          }
+          
+          p.distance = getDistance(p1, p2);
+        });
+
+        // Sort by distance
+        allPoints.sort((a, b) => a.distance - b.distance);
+
+        // Get K nearest
+        const nearest = allPoints.slice(0, k);
+
+        // Count votes
+        const votes = {orange: 0, grapefruit: 0};
+        nearest.forEach(p => votes[p.type]++);
+
+        // Predict
+        const prediction = votes.orange > votes.grapefruit ? 'ORANGE' : 'GRAPEFRUIT';
+        document.getElementById('prediction').textContent = prediction;
+        document.getElementById('result').classList.remove('hidden');
+
+        // Update neighbors list and heading with current K value
+        document.getElementById('neighborsHeading').textContent = `Nearest Neighbors (K=${k}):`;
+        updateNeighborsList(nearest);
+
+        // Highlight nearest neighbors
+        updateNeighborHighlighting(nearest);
+
+        // Draw lines to nearest neighbors
+        drawNeighborLines(userPoint, nearest);
+
+        // Update data table
+        sortedData = [...allPoints];
+        sortTable(sortColumn);
+
+        // Update chart
+        chart.update();
+      }
+
+      // Update neighbors list
+      function updateNeighborsList(neighbors) {
+        const list = document.getElementById('neighborsList');
+        list.innerHTML = '';
+        
+        neighbors.forEach((neighbor, index) => {
+          const item = document.createElement('div');
+          item.className = 'neighbor-item';
+          item.innerHTML = `
+            <strong>Neighbor #${index+1}:</strong> ${neighbor.type.toUpperCase()}<br>
+            <small>Diameter: ${neighbor.x.toFixed(1)}cm, Weight: ${neighbor.y.toFixed(0)}g, Distance: ${neighbor.distance.toFixed(2)}</small>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      // Update neighbor highlighting (add dark red border)
+      function updateNeighborHighlighting(neighbors) {
+        chart.data.datasets.forEach(dataset => {
+          if (dataset.label === 'Oranges' || dataset.label === 'Grapefruits') {
+            dataset.borderWidth = dataset.data.map(point => {
+              const isNearest = neighbors.some(n => {
+                return Math.abs(n.x - point.x) < 0.01 && Math.abs(n.y - point.y) < 0.01;
+              });
+              return isNearest ? 4 : 0;
+            });
+            dataset.borderColor = dataset.data.map(point => {
+              const isNearest = neighbors.some(n => {
+                return Math.abs(n.x - point.x) < 0.01 && Math.abs(n.y - point.y) < 0.01;
+              });
+              return isNearest ? '#c0392b' : 'transparent';
+            });
+          }
+        });
+      }
+
+      // Draw dotted lines to nearest neighbors
+      function drawNeighborLines(userPoint, neighbors) {
+        const lineData = [];
+        
+        neighbors.forEach(neighbor => {
+          lineData.push(...[
+            {x: userPoint.x, y: userPoint.y},
+            {x: neighbor.x, y: neighbor.y},
+            {x: null, y: null}
+          ]);
+        });
+        
+        chart.data.datasets.push({
+          label: 'Neighbor Lines',
+          data: lineData,
+          type: 'line',
+          borderColor: '#e74c3c',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false,
+          order: -1
+        });
+      }
+
+      // Update data table
+      function updateTable() {
+        if (!userPoint) return;
+        
+        const standardize = document.getElementById('standardize').checked;
+        updateTableVisibility();
+        
+        const allPoints = [];
+        orangeData.forEach(p => allPoints.push({...p, type: 'orange'}));
+        grapefruitData.forEach(p => allPoints.push({...p, type: 'grapefruit'}));
+        
+        allPoints.forEach(p => {
+          let p1 = userPoint;
+          let p2 = p;
+          
+          p.diameter_std = (p.x - scaler.xMean) / scaler.xStd;
+          p.weight_std = (p.y - scaler.yMean) / scaler.yStd;
+          
+          if (standardize) {
+            p1 = standardizePoint(p1);
+            p2 = standardizePoint(p2);
+          }
+          
+          p.distance = getDistance(p1, p2);
+        });
+        
+        sortedData = [...allPoints];
+        sortTable(sortColumn);
+      }
+
+      // Update table visibility (show/hide standardize columns)
+      function updateTableVisibility() {
+        const standardize = document.getElementById('standardize').checked;
+        document.getElementById('std-diam-header').style.display = standardize ? 'table-cell' : 'none';
+        document.getElementById('std-weight-header').style.display = standardize ? 'table-cell' : 'none';
+        
+        const tdStdDiam = document.querySelectorAll('#data-table-body td:nth-child(4)');
+        const tdStdWeight = document.querySelectorAll('#data-table-body td:nth-child(5)');
+        
+        tdStdDiam.forEach(td => {
+          td.style.display = standardize ? 'table-cell' : 'none';
+        });
+        
+        tdStdWeight.forEach(td => {
+          td.style.display = standardize ? 'table-cell' : 'none';
+        });
+      }
+
+      // Sort table by column
+      function sortTable(column) {
+        if (!sortedData.length && !userPoint) return;
+        
+        if (sortColumn === column) {
+          sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortOrder = 'asc';
+          sortColumn = column;
+        }
+        
+        sortedData.sort((a, b) => {
+          if (column === 'type') {
+            return sortOrder === 'asc' ? a.type.localeCompare(b.type) : b.type.localeCompare(a.type);
+          } else if (column === 'diameter') {
+            return sortOrder === 'asc' ? a.x - b.x : b.x - a.x;
+          } else if (column === 'weight') {
+            return sortOrder === 'asc' ? a.y - b.y : b.y - a.y;
+          } else if (column === 'diameter_std') {
+            return sortOrder === 'asc' ? a.diameter_std - b.diameter_std : b.diameter_std - a.diameter_std;
+          } else if (column === 'weight_std') {
+            return sortOrder === 'asc' ? a.weight_std - b.weight_std : b.weight_std - a.weight_std;
+          } else if (column === 'distance') {
+            return sortOrder === 'asc' ? a.distance - b.distance : b.distance - a.distance;
+          }
+        });
+        
+        const tbody = document.getElementById('data-table-body');
+        tbody.innerHTML = '';
+        
+        sortedData.forEach(point => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${point.type.toUpperCase()}</td>
+            <td>${point.x.toFixed(1)}</td>
+            <td>${point.y.toFixed(0)}</td>
+            <td>${point.diameter_std.toFixed(2)}</td>
+            <td>${point.weight_std.toFixed(2)}</td>
+            <td>${point.distance.toFixed(2)}</td>
+          `;
+          tbody.appendChild(row);
+        });
+        
+        updateTableVisibility();
+      }
+
+      // Reset chart
+      function resetChart() {
+        if (!chart) return;
+        
+        chart.data.datasets = chart.data.datasets.filter(d => d.label !== 'Your Fruit' && d.label !== 'Neighbor Lines');
+        chart.data.datasets.forEach(dataset => {
+          if (dataset.label === 'Oranges' || dataset.label === 'Grapefruits') {
+            dataset.borderWidth = 0;
+            dataset.borderColor = 'transparent';
+          }
+        });
+
+        document.getElementById('result').classList.add('hidden');
+        userPoint = null;
+        sortedData = [];
+        const tbody = document.getElementById('data-table-body');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Click on the chart to add a point</td></tr>';
+        
+        chart.update();
+      }
+
+      // Regenerate data
+      function regenerateData() {
+        if (!chart) return;
+        
+        generateData();
+        calculateScaler();
+        chart.data.datasets = [
+          {
+            label: 'Oranges',
+            data: orangeData.map(p => ({x: p.x, y: p.y})),
+            backgroundColor: '#f39c12',
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 0
+          },
+          {
+            label: 'Grapefruits',
+            data: grapefruitData.map(p => ({x: p.x, y: p.y})),
+            backgroundColor: '#8e44ad',
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 0
+          }
+        ];
+        
+        resetChart();
+        chart.update();
+      }
+
+      // Distance calculation
+      function getDistance(p1, p2) {
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+      }
+    </script>
+  </div>
+</body>
+</html>
