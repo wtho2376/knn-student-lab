@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>K-means 2D Demonstration</title>
+  <style>
+    :root{--bg:#f7f9fb}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg)}
+    .wrap{display:flex;gap:16px;padding:16px}
+    canvas{background:linear-gradient(180deg,#ffffff,#f7f9fb);border-radius:10px;box-shadow:0 6px 18px rgba(20,30,50,.06)}
+    .panel{width:320px}
+    label{display:block;margin:8px 0;font-size:13px}
+    button{padding:8px 10px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+    button.primary{background:#0b67f6;color:#fff;border-color:#0b67f6}
+    p{color:#444;font-size:13px}
+    .small{font-size:12px;color:#666}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div>
+      <h2 style="margin:0 0 8px">K-means 2D Demonstration</h2>
+      <canvas id="plot" width="820" height="620"></canvas>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+        <div id="status" style="font-size:13px;color:#333">Ready</div>
+        <div>
+          <button id="restart">Restart</button>
+          <button id="run" class="primary">Run</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <label>Number of Points <input id="nPoints" type="range" min="30" max="450" value="120"> <span id="npLabel">120</span></label>
+      <label>Number of Clusters (K) <input id="k" type="range" min="2" max="6" value="3"> <span id="kLabel">3</span></label>
+      <label>Iterations <input id="iters" type="range" min="2" max="6" value="3"> <span id="itLabel">3</span></label>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="step">Step</button>
+        <button id="auto">Auto</button>
+      </div>
+      <p style="margin-top:48px"><strong>Two-phase step:</strong></p> 
+	  
+	  <p><strong>First click</strong> shows classification + cluster boundaries (no centroid move).</p> 
+	  <p><strong>Second click</strong> animates centroid moves and updates the cluster boundaries in real time (you'll see points cross boundaries).</p>
+
+    </div>
+  </div>
+
+<script>
+/*
+  K-means 2D with exact Voronoi polygons (Option A2) and two-phase step behavior.
+  - Phase 0 (assign & show polygons)
+  - Phase 1 (animate centroid movement; polygons update real-time)
+*/
+
+const canvas = document.getElementById('plot');
+const ctx = canvas.getContext('2d');
+
+const nPointsEl = document.getElementById('nPoints');
+const kEl = document.getElementById('k');
+const itersEl = document.getElementById('iters');
+const npLabel = document.getElementById('npLabel');
+const kLabel = document.getElementById('kLabel');
+const itLabel = document.getElementById('itLabel');
+const statusEl = document.getElementById('status');
+
+let N = parseInt(nPointsEl.value,10);
+let K = parseInt(kEl.value,10);
+let maxIter = parseInt(itersEl.value,10);
+
+let points = [], centroids = [], assignments = null;
+let iter = 0;
+let animating = false;
+let autoplay = false;
+// phase: 0 = need to compute assignment & show polygons; 1 = animate centroids for previous assignment
+let phase = 0;
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+// colors
+function genColors(k){
+  const base = [
+    [66,133,244],[219,68,55],[244,180,0],
+    [15,157,88],[171,71,188],[0,172,193]
+  ];
+  return Array.from({length:k}, (_,i)=>`rgba(${base[i%base.length].join(',')},`);
+}
+let colors = genColors(K);
+
+// geometry helpers
+function dot(a,b){ return a.x*b.x + a.y*b.y; }
+function sub(a,b){ return {x: a.x - b.x, y: a.y - b.y}; }
+function add(a,b){ return {x: a.x + b.x, y: a.y + b.y}; }
+function mul(a, t){ return {x: a.x * t, y: a.y * t}; }
+
+// line intersection of segment p->q with bisector between s and t
+// Solve (t - s)·p = (t·t - s·s)/2 for p on segment p = v + alpha*(u-v)
+function intersectSegmentBisector(v, u, s, t){
+  const dir = {x: u.x - v.x, y: u.y - v.y}; // segment direction
+  const w = {x: t.x - s.x, y: t.y - s.y}; // (t - s)
+  const rhs = (t.x*t.x + t.y*t.y - s.x*s.x - s.y*s.y) / 2;
+  const wv = w.x * v.x + w.y * v.y;
+  const wdir = w.x * dir.x + w.y * dir.y;
+  // w·(v + alpha*dir) = rhs => alpha = (rhs - w·v) / (w·dir)
+  if (Math.abs(wdir) < 1e-9) return null; // parallel -> no intersection or infinite
+  const alpha = (rhs - wv) / wdir;
+  if(alpha < -1e-6 || alpha > 1 + 1e-6) return null; // outside segment with tolerance
+  return { x: v.x + dir.x * alpha, y: v.y + dir.y * alpha };
+}
+
+// Clip polygon by half-plane: (t - s)·p <= (t·t - s·s)/2  => keeps points closer to s than t
+function clipPolygonByBisector(poly, s, t){
+  if(!poly || poly.length === 0) return [];
+  const w = {x: t.x - s.x, y: t.y - s.y};
+  const rhs = (t.x*t.x + t.y*t.y - s.x*s.x - s.y*s.y) / 2;
+  const out = [];
+  for(let i=0;i<poly.length;i++){
+    const A = poly[i];
+    const B = poly[(i+1) % poly.length];
+    const vA = w.x * A.x + w.y * A.y;
+    const vB = w.x * B.x + w.y * B.y;
+    const insideA = vA <= rhs + 1e-9;
+    const insideB = vB <= rhs + 1e-9;
+    if(insideA && insideB){
+      // keep B
+      out.push(B);
+    } else if(insideA && !insideB){
+      // A in, B out => keep intersection
+      const ip = intersectSegmentBisector(A, B, s, t);
+      if(ip) out.push(ip);
+    } else if(!insideA && insideB){
+      // A out, B in => add intersection then B
+      const ip = intersectSegmentBisector(A, B, s, t);
+      if(ip) out.push(ip);
+      out.push(B);
+    } else {
+      // both out: keep none
+    }
+  }
+  // remove duplicate consecutive points (numerical)
+  const cleaned = [];
+  for(const p of out){
+    const last = cleaned[cleaned.length-1];
+    if(!last || Math.hypot(last.x-p.x, last.y-p.y) > 1e-6) cleaned.push(p);
+  }
+  return cleaned;
+}
+
+// Build exact Voronoi polygon for centroid i by clipping the bounding box with half-planes from other centroids
+function computeVoronoiPolygons(sites, bbox){
+  // bbox polygon [clockwise]
+  const poly = [
+    {x: bbox.xMin, y: bbox.yMin},
+    {x: bbox.xMax, y: bbox.yMin},
+    {x: bbox.xMax, y: bbox.yMax},
+    {x: bbox.xMin, y: bbox.yMax},
+  ];
+  const polys = sites.map((s, idx) => {
+    let cell = poly.slice();
+    for(let j=0;j<sites.length;j++){
+      if(j===idx) continue;
+      cell = clipPolygonByBisector(cell, sites[idx], sites[j]);
+      if(cell.length === 0) break;
+    }
+    return cell;
+  });
+  return polys;
+}
+
+// assignment: nearest centroid for each point (return array)
+function computeAssignment(sites){
+  const labels = new Array(points.length);
+  for(let i=0;i<points.length;i++){
+    let best = -1, bd = Infinity;
+    for(let j=0;j<sites.length;j++){
+      const dx = points[i].x - sites[j].x;
+      const dy = points[i].y - sites[j].y;
+      const d = dx*dx + dy*dy;
+      if(d < bd){ bd = d; best = j; }
+    }
+    labels[i] = best;
+  }
+  return labels;
+}
+
+// recompute centroid targets from provided labels (mean of assigned points)
+function computeTargetsFromLabels(labels, K){
+  const sums = Array.from({length:K}, ()=>({x:0,y:0,c:0}));
+  for(let i=0;i<points.length;i++){
+    const a = labels[i];
+    if(a == null || a < 0 || a >= K) continue;
+    sums[a].x += points[i].x;
+    sums[a].y += points[i].y;
+    sums[a].c += 1;
+  }
+  const targets = [];
+  for(let j=0;j<K;j++){
+    if(sums[j].c === 0) targets.push({x: centroids[j].x, y: centroids[j].y});
+    else targets.push({x: sums[j].x / sums[j].c, y: sums[j].y / sums[j].c});
+  }
+  return targets;
+}
+
+// drawing helpers
+function drawPolygons(polys){
+  // shading polygons and stroke edges
+  ctx.lineWidth = 2;
+  for(let j=0;j<polys.length;j++){
+    const poly = polys[j];
+    if(!poly || poly.length < 3) continue;
+    ctx.beginPath();
+    ctx.moveTo(poly[0].x, poly[0].y);
+    for(let k=1;k<poly.length;k++) ctx.lineTo(poly[k].x, poly[k].y);
+    ctx.closePath();
+    ctx.fillStyle = colors[j] + '0.18)';
+    ctx.fill();
+    ctx.strokeStyle = colors[j] + '1)';
+    ctx.stroke();
+  }
+}
+
+function drawAll(polys){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // polygons (if shading enabled)
+  if(polys) drawPolygons(polys);
+
+  // dotted assignment lines if assignments exist
+  if(assignments){
+    ctx.setLineDash([6,6]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    for(let i=0;i<points.length;i++){
+      const a = assignments[i];
+      if(a == null) continue;
+      ctx.beginPath();
+      ctx.moveTo(points[i].x, points[i].y);
+      ctx.lineTo(centroids[a].x, centroids[a].y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  // points (colored by assignments if present, otherwise neutral)
+  for(let i=0;i<points.length;i++){
+    const a = assignments ? assignments[i] : null;
+    ctx.beginPath();
+    ctx.arc(points[i].x, points[i].y, 4, 0, Math.PI*2);
+    ctx.fillStyle = (a != null && a >= 0 && a < K) ? (colors[a] + '1)') : '#777';
+    ctx.fill();
+  }
+
+  // draw centroids (highlight)
+  for(let j=0;j<centroids.length;j++){
+    const c = centroids[j];
+    // large ring
+    ctx.beginPath(); ctx.arc(c.x, c.y, 12, 0, Math.PI*2);
+    ctx.fillStyle = colors[j] + (assignments ? '0.32)' : '0.12)'); ctx.fill();
+    // inner dot
+    ctx.beginPath(); ctx.arc(c.x, c.y, 6, 0, Math.PI*2);
+    ctx.fillStyle = colors[j] + '1)'; ctx.fill();
+    // crosshair
+    ctx.beginPath();
+    ctx.moveTo(c.x - 14, c.y); ctx.lineTo(c.x + 14, c.y);
+    ctx.moveTo(c.x, c.y - 14); ctx.lineTo(c.x, c.y + 14);
+    ctx.strokeStyle = colors[j] + '1)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+}
+
+// initialization
+function genScattered(n){
+  const pts = [];
+  for(let i=0;i<n;i++){
+    pts.push({ x: rand(40, canvas.width-40), y: rand(40, canvas.height-40) });
+  }
+  return pts;
+}
+
+function init(){
+  N = parseInt(nPointsEl.value,10);
+  K = parseInt(kEl.value,10);
+  maxIter = parseInt(itersEl.value,10);
+  npLabel.textContent = N; kLabel.textContent = K; itLabel.textContent = maxIter;
+
+  colors = genColors(K);
+  points = genScattered(N);
+  centroids = [];
+  const used = new Set();
+  while(centroids.length < K){
+    const idx = Math.floor(Math.random()*points.length);
+    if(!used.has(idx)){ used.add(idx); centroids.push({ x: points[idx].x, y: points[idx].y }); }
+  }
+  assignments = null;
+  iter = 0; animating = false; autoplay = false; phase = 0;
+  statusEl.textContent = 'Initialized (centroids highlighted)';
+  // draw initial (no polygons)
+  drawAll(null);
+}
+
+// two-phase step
+async function kstep(){
+  if(animating) return;
+  if(phase === 0){
+    // Phase 0: compute assignment and show Voronoi polygons using current centroids
+    assignments = computeAssignment(centroids);
+    // compute polygons exactly using half-plane intersection
+    const bbox = { xMin: 0, yMin: 0, xMax: canvas.width, yMax: canvas.height };
+    const polys = computeVoronoiPolygons(centroids, bbox);
+    drawAll(polys);
+    statusEl.textContent = `Assigned — iteration ${iter+1}. Click Step to move centroids.`;
+    // move to movement phase
+    phase = 1;
+  } else {
+    // Phase 1: animate centroid movement to the means of the current assignment
+    animating = true;
+    statusEl.textContent = `Moving centroids (iteration ${iter+1})...`;
+    const targets = computeTargetsFromLabels(assignments, K);
+    await animateCentroidMove(targets, 800);
+    // after move finishes, recompute polygons with the final centroid positions and draw them
+    const bbox = { xMin: 0, yMin: 0, xMax: canvas.width, yMax: canvas.height };
+    const polys = computeVoronoiPolygons(centroids, bbox);
+    // NOTE: keep assignments displayed (they were from previous assignment) so user can see points crossing.
+    drawAll(polys);
+    statusEl.textContent = `Completed move for iteration ${iter+1}.`;
+    iter++;
+    animating = false;
+    // after movement, go back to assignment phase for next iteration
+    phase = 0;
+    // next click will recompute assignments based on updated centroids
+  }
+}
+
+// animate centroids and update polygons each frame so edges move in real-time
+function animateCentroidMove(targets, duration=800){
+  return new Promise(res => {
+    const start = centroids.map(c => ({x:c.x,y:c.y}));
+    const t0 = performance.now();
+    function frame(now){
+      const p = Math.min(1, (now - t0) / duration);
+      const e = p < 0.5 ? 2*p*p : -1 + (4 - 2*p) * p;
+      for(let j=0;j<centroids.length;j++){
+        centroids[j].x = start[j].x + (targets[j].x - start[j].x) * e;
+        centroids[j].y = start[j].y + (targets[j].y - start[j].y) * e;
+      }
+      // recompute polygons for the CURRENT (interpolated) centroids and draw
+      const bbox = { xMin: 0, yMin: 0, xMax: canvas.width, yMax: canvas.height };
+      const polys = computeVoronoiPolygons(centroids, bbox);
+      drawAll(polys);
+      if(p < 1) requestAnimationFrame(frame);
+      else res();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+// run / auto convenience: run through remaining iterations using two-phase clicks per iteration
+async function runAll(){
+  autoplay = true;
+  document.getElementById('auto').textContent = 'Stop';
+  while(iter < maxIter && autoplay){
+    // simulate two clicks per iteration (assign, then move)
+    await kstep(); // assign & show polys
+    // small pause so user sees the assignment step
+    await new Promise(r => setTimeout(r, 300));
+    await kstep(); // animate move
+    await new Promise(r => setTimeout(r, 180));
+  }
+  autoplay = false;
+  document.getElementById('auto').textContent = 'Auto';
+}
+
+// UI wiring
+document.getElementById('step').addEventListener('click', ()=>kstep());
+document.getElementById('restart').addEventListener('click', ()=>{ init(); });
+document.getElementById('run').addEventListener('click', ()=>runAll());
+document.getElementById('auto').addEventListener('click', (e)=>{ autoplay = !autoplay; e.target.textContent = autoplay ? 'Stop' : 'Auto'; if(autoplay) runAll(); });
+
+[nPointsEl, kEl, itersEl].forEach(el=>{
+  el.addEventListener('input', ()=>{
+    npLabel.textContent = nPointsEl.value;
+    kLabel.textContent = kEl.value;
+    itLabel.textContent = itersEl.value;
+  });
+  el.addEventListener('change', ()=> init());
+});
+
+// start
+init();
+
+</script>
+</body>
+</html>
